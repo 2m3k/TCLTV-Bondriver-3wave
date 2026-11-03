@@ -27,7 +27,7 @@ TV用セットアップアプリのパッケージ名は `app.tcltv3wave`、ア�
 
 ### 前提
 
-- BLU済みでMagiskが動作している対応TV（導入方法は[Magisk bootリポジトリ](https://github.com/Long0823-1/TCL-G06-Magisk-Boot)を参照）
+- BLU済みでMagiskが動作している対応TV
 - TVにB-CASカードを挿入し、BS/CSアンテナを接続済み
 - **TV本体のチャンネル設定で地上波・BS・CSのスキャンが完了していること**（このツールはTVのスキャン結果を利用します）
 - Windows PCに[Platform-Tools（ADB）](https://developer.android.com/tools/releases/platform-tools)とTVTestを用意し、TVとPCを同じLANに接続
