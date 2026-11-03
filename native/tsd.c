@@ -7,6 +7,8 @@
 #include <android/log.h>
 #include <arpa/inet.h>
 #include <dlfcn.h>
+#include <link.h>
+#include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -22,6 +24,8 @@
 
 #define TAG "tsd"
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+static void diag_write(const char *fmt,...){char buf[2048];va_list ap;va_start(ap,fmt);vsnprintf(buf,sizeof buf,fmt,ap);va_end(ap);__android_log_print(ANDROID_LOG_INFO,TAG,"%s",buf);FILE *f=fopen("/data/local/tmp/tsd_diag.txt","a");if(f){fputs(buf,f);fputc('\n',f);fclose(f);}}
+#define DIAG(...) diag_write(__VA_ARGS__)
 #define NSCR 8
 #define SCRSZ 0x10000
 
@@ -112,6 +116,7 @@ static uintptr_t parse_arg(const char *t) {
   return (uintptr_t)strtoul(t, NULL, 0);
 }
 
+static pthread_mutex_t route_switch_lock=PTHREAD_MUTEX_INITIALIZER;
 #include "tsd_epg.inc"
 #include "tsd_dual.inc"
 
@@ -121,7 +126,8 @@ static uintptr_t parse_arg(const char *t) {
 static void handle(int fd, char *line) {
   char *tok[16];
   int n = 0;
-  for (char *p = strtok(line, " \r\n"); p && n < 16; p = strtok(NULL, " \r\n")) tok[n++] = p;
+  char *save = NULL;
+  for (char *p = strtok_r(line, " \r\n", &save); p && n < 16; p = strtok_r(NULL, " \r\n", &save)) tok[n++] = p;
   if (!n) return;
   if (!strcmp(tok[0], "call") && n >= 2) {
     void *f = resolve(tok[1]);

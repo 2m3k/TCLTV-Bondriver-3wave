@@ -1,4 +1,4 @@
-package io.github.long0823.tclbondriver;
+package app.tcltv3wave;
 import java.io.*;import java.nio.charset.*;import java.nio.file.*;import java.time.*;import java.util.*;import javax.xml.parsers.*;import org.w3c.dom.*;
 public final class XmlTvTest {
  static void require(boolean b,String reason){if(!b)throw new AssertionError(reason);}

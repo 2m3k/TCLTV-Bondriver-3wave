@@ -1,4 +1,4 @@
-package io.github.long0823.tclbondriver;
+package app.tcltv3wave;
 import java.io.*;import java.nio.charset.StandardCharsets;import java.nio.file.*;import java.util.*;
 public final class IptvCoreTest {
  static int crc(byte[] b,int at,int len){int v=-1;for(int i=at;i<at+len;i++){v^=(b[i]&255)<<24;for(int j=0;j<8;j++)v=(v&0x80000000)!=0?(v<<1)^0x04c11db7:v<<1;}return v;}

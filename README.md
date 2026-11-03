@@ -1,98 +1,148 @@
-# TCLTV-Bondriver
+# TCLTV-Bondriver 3波対応版（32S5400）
 
-## Magisk適用済みbootイメージの公開（2026-10-27）
+TCL G06シリーズ（32S5400 / MT5867）の **地上波・BS・110度CS（3波）** を、WindowsのBonDriver対応ソフト（TVTestなど）から受信するためのツールです。TVで別のアプリを使いながら、独立した2チューナーで異なる局を同時に受信できます。有料CSの視聴（デスクランブルはTV側のB-CAS処理）にも対応しています。
 
-TCL 32S5400（G06 / MT5867）向けの **Magisk 25.2（25200）適用済みboot.img** を、別リポジトリで公開しました。ユーザーによる実機起動試験で正常動作を確認しています。
+TV用セットアップアプリのパッケージ名は `app.tcltv3wave`、アプリ名は「32S5400 3波対応版」です。
 
-[対応条件・導入説明](https://github.com/Long0823-1/TCL-G06-Magisk-Boot) · [bootイメージとSHA-256をダウンロード](https://github.com/Long0823-1/TCL-G06-Magisk-Boot/releases/tag/magisk-25.2-20261027)
+## 特長
 
-**改変bootを書き込む前に、必ずvbmetaのAVB検証を無効化してください。** ブートローダーのアンロックとは別の操作です。対象TVと同じファームウェアのvbmetaを使用し、元のboot・vbmeta等のバックアップと復旧手段を確保してください。手順は[Magisk bootの導入説明](https://github.com/Long0823-1/TCL-G06-Magisk-Boot#vbmetaの検証無効化)を参照してください。機種名が同じでも別基板・別ファームウェア・他個体は未検証です。スマホ視聴アプリを使うスマートフォン自身のroot化は不要です。
+- 地デジ・BS・110度CSの3波すべてをTVTestから選局・視聴可能
+- TVがどちらの系統を表示していても相互に選局できる（ベンダーDBの「ルート」切替を選局ごとに実施）
+- 衛星選局パラメータは実機で検証済み
+- TVTestのチャンネルスキャンが最後まで通る（未契約チャンネルも登録可能）
+- TVアプリの自動EPG収集と視聴チューナーが競合しない
+  - ※トレードオフとして、TVアプリ側の衛星EPG（XMLTV）は更新されなくなります（TVTest側には影響しません）
 
+## 動作確認環境
 
-TCL G06日本向けAndroid TVの地デジを、WindowsのBonDriver対応ソフトから受信するためのツールです。TVでYouTubeなど別のアプリを使いながら、**独立した2チューナーで異なる局の映像・音声を受信**できます。
+- TV: TCL 32S5400（MT5867、Android 11、Magiskによるroot化済み）
+- B-CASカード挿入済み、BS/CSアンテナ接続済み、TV側で地上波・BS・CSのスキャン済み
+- PC: Windows + TVTest（BonDriver_TCLG06 / BonDriver_TCLG06_1）
 
-TV用セットアップAPK、Windows用セットアップツール、x86/x64のBonDriverを用意しています。初回設定後の選局・TS転送はTV内の常駐ネイティブサービスが行い、PC側のPythonやADB常駐は不要です。
+他のTCL TV・ファームウェアでの動作は未検証です。
 
-**配信本体・TV用APK・Windowsセットアップ一式 v0.6.0（XMLTV番組表・消灯時の通信維持・IPTV）。実験的な対応機種限定版です。** 対応ファームウェアの実機で検証しています。他のTCL TV・ファームウェアへの適用は確認していません。
+## 導入手順
 
-Androidスマートフォン向けには、独立アプリ[TCLTV-Android-Viewer](https://github.com/Long0823-1/TCLTV-Android-Viewer)を用意しています。番組表・アプリ内再生・システムバーを隠す全画面・対応局の実ロゴ表示に対応し、TVセットアップAPK 0.6.0では確認コードで接続情報・スキャン済み局一覧をスマホへ渡せます。
-## 0.6.0の更新
+ブートローダーアンロック（BLU）とMagiskの導入が済んでいれば、あとは以下の手順だけで使えるようになります。スクリーンショット付きの詳しい手順は `docs/SETUP.md` にもあります。
 
-XMLTV形式の番組表とgzip配信を追加。M3UへEPG URLを埋め込み、空きチューナーで番組情報を自動収集し、外部からの視聴要求で中断します。IPTV視聴中にもEITを蓄積し、再起動後も保存済み情報を配信します。番組表の取得だけでは選局しません。スマホ版0.4.1からXMLTV URLをコピーできます。
+### 前提
 
-[XMLTVの登録・収集手順](docs/XMLTV.md) · [検証記録](validation/v0.6.0.md)
+- BLU済みでMagiskが動作している対応TV（導入方法は[Magisk bootリポジトリ](https://github.com/Long0823-1/TCL-G06-Magisk-Boot)を参照）
+- TVにB-CASカードを挿入し、BS/CSアンテナを接続済み
+- **TV本体のチャンネル設定で地上波・BS・CSのスキャンが完了していること**（このツールはTVのスキャン結果を利用します）
+- Windows PCに[Platform-Tools（ADB）](https://developer.android.com/tools/releases/platform-tools)とTVTestを用意し、TVとPCを同じLANに接続
 
-## 0.5.0の更新
+### 手順1: リリースZIPを展開し、APKをTVへ入れる
 
-- 通常のリモコン短押しで画面を消しても、Wi-Fi・有線LANと配信処理を維持する常駐サービスを追加。
-- TCLの常駐許可はこのアプリだけを追加し、停止操作で追加分と変更した電源設定を戻します。
-- 第1チューナーが消灯時に一時停止した際もTS接続を保持して再捕捉します。再捕捉中は短い映像・音声の停止が起こる場合があります。
-- TVでM3UプレイリストとHTTP MPEG-TSを配信。TVのスキャン結果から局一覧を生成し、一般IPTVプレイヤー向けに指定番組だけを送ります。
-- スマホ版0.4.0ではTVからIPTV専用情報を取得し、M3U URLを表示・コピーできます。
+1. リリースZIPをすべて展開する
+2. `TCL-BonDriver-Setup.exe` を起動し、ADB接続先（ネットワークADBなら `TVのIPアドレス:5555`、USB接続で機器が1台だけなら空欄）と、TVTestのフォルダーを指定する
+3. 「1. APKをTVへ導入」を押すと、TV用APKがTVにインストールされて開きます（初回はTV側でADB接続の許可を求められる場合があります）
 
-通信維持中は通常の省電力待機より消費電力が増え、AC給電中の自動消灯も抑制されます。リモコンでの画面消灯は可能です。対象は対応ファームウェアの通常待機です。
+### 手順2: TV側でセットアップする
 
-[更新・消灯時の通信維持](docs/SLEEP_IPTV.md) · [IPTVの使い方](docs/IPTV.md) · [0.5.0実機検証](validation/v0.5.0.md)
+1. TVの「32S5400 3波対応版」で **「1. セットアップ」** を選ぶ
+2. Magiskの許可要求が出たら、対象が **32S5400 3波対応版（`app.tcltv3wave`）** であることを確認して許可する（期間は「今後も」がおすすめ）
+3. 完了したらAPKの **「2. テレビを再起動」** を選び、起動後1〜2分待つ
 
-## ダウンロードと手順
+このセットアップで、配信デーモン本体の `libtsd.so` がTVの `/data/local/tmp/` に配置され、Magiskの起動スクリプト（post-fs-data）によってTV起動時に自動で読み込まれるようになります。
 
-- [Windows・初回TVセットアップ一式 ZIP（v0.6.0）](https://github.com/Long0823-1/TCLTV-Bondriver/releases/download/v0.6.0/TCLTV-Bondriver-v0.6.0.zip)
-- [TVセットアップAPK 0.6.0（XMLTV・通信維持・IPTV）](https://github.com/Long0823-1/TCLTV-Bondriver/releases/tag/v0.6.0)
-- [Androidスマホ用APK 0.4.1](https://github.com/Long0823-1/TCLTV-Android-Viewer/releases/tag/v0.4.1)
-- [スマホの接続手順](docs/mobile-pairing.md)
-- **[スクショ付きセットアップ手順](docs/SETUP.md)**
-- [ビルド方法](docs/BUILD.md)
-- [構成とプロトコル](docs/ARCHITECTURE.md)
-- [実機での検証結果](validation/README.md)
+### 手順3: PCへドライバと局一覧を配置する
 
-ZIPはすべて展開して使用してください。TVTestとADBは同梱していません。ADBがない場合は、[Google公式Platform-Tools](https://developer.android.com/tools/releases/platform-tools)を入手し、ZIP内の `platform-tools` フォルダーをセットアップEXEの隣へ展開してください。既存のPATH上のADBも使用できます。
+Windowsツールで **「2. 接続設定・局一覧を更新」** を押します。TVTestのフォルダーに、1系統目用 `BonDriver_TCLG06.dll` と2系統目用 `BonDriver_TCLG06_1.dll`、および接続設定（INI）が配置されます。
 
-## 対応環境
+※ INIには機器固有のキーが含まれます。GitHubなどへのアップロードや第三者との共有はしないでください。
 
-- 実機検証したTCL G06日本向けファームウェア、Android 11、32bit ARM。
-- Magisk導入済みのTVと、そのTVで地デジを受信できる環境。
-- Windows 10/11、x86またはx64のBonDriver対応ソフト。TVTest.exeのビット数に合うDLLをツールが選びます。
-- TVとPC間の有線LANまたはWi-Fi。初回のAPK導入・接続設定にはUSBまたはネットワークADBが必要です。
-- 地デジの局一覧はTV本体のスキャン結果から取得します。地域固定のプリセットは使いません。TV側でスキャン後、Windowsツールで接続設定・局一覧を更新してください。周波数はTVのチャンネルDBから取得します。
+### 手順4: 配信テストとTVTestの設定
 
-APKはroot化・ブートローダー変更・ファームウェアの書き換えを行いません。対応するベンダーライブラリー3個のSHA-256を検査し、不一致ならセットアップを中止します。検査値は `android/assets/install.sh` に記載しています。
+1. Windowsツールの **「3. 配信をテスト」** で受信を確認する
+2. TVTestを起動し、チューナーとして `BonDriver_TCLG06.dll`（2系統目は `BonDriver_TCLG06_1.dll`）を選ぶ
+3. TVTestのチャンネルスキャンで `Terrestrial ISDB-T` と `Satellite BS/CS ISDB-S` をそれぞれスキャンする
+4. 地デジ・BS・CSを選局して映像・音声が出れば完了です
 
-## 使い方
+## デーモン（libtsd.so）を手動で差し替える手順
 
-1. Windowsの `TCL-BonDriver-Setup.exe` からAPKをTVへ導入します。
-2. TVのAPKでセットアップを実行し、Magiskでこのアプリへのroot許可を与え、TVを再起動します。
-3. PC側でTVのIPとTVTestのフォルダーを指定し、「2チューナー分」を有効にして接続設定・DLLを配置します。
-4. TVTestを2つ起動し、それぞれ `BonDriver_TCLG06.dll` と `BonDriver_TCLG06_1.dll` を使用します。
-5. TVTestでチャンネルスキャンします。信号欄にはチューナー実測のC/N（dB）を表示します。
+デーモン本体はTV内の **`/data/local/tmp/libtsd.so`** という1ファイルだけです。新しい `libtsd.so`（例: `libtsd_release.so`）が配布された場合は、セットアップをやり直さなくても、このファイルを差し替えるだけで更新できます。
 
-TVを再起動すると保存済みの選局・配信を復旧します。TV画面で地デジアプリを開く必要はありません。各チューナーのTSは1クライアント用です。同じチューナー番号を複数のBonDriverから同時に開く操作は拒否します。
+PCのコマンドプロンプトで、Platform-Toolsのフォルダーから実行します（`<TVのIPアドレス>` はTVのIPに読み替え。USB接続で機器が1台だけの場合は `-s <TVのIPアドレス>:5555` の部分は不要です）。
 
-## 現時点の制限
+```
+rem まずTVへ接続する（初回はTVの画面で接続許可を押す）
+adb connect <TVのIPアドレス>:5555
 
-- PATにある全サービスのPMTと、映像・音声サービスのPIDを取得し、枝番号・追加音声・データ放送に対応しました。実機検証はNHK総合・ETVを中心に実施しています。異なるECMを使うサービス群や、放送途中のPMT変更への自動追従は未検証です。変更時は再選局してください。
-- 信号表示は実測C/Nを約1秒間隔で取得します。ロックなし・切断時は0dBです。電波強度の絶対値（dBm）ではありません。
-- 対応上限はPAT 1セクション・32サービス・PID合計63・第1系統の映像・音声2 PID＋追加復号ES 12・第2系統の追加復号PID 12です。上限超過時は選局エラーにします。
-- 視聴サービス内のデータ放送は配信しますが、独立したデータ専用サービスのESはPID枠確保のため対象外です。
-- 2系統を使用中は、TV本体側の録画など別のチューナー使用機能との同時利用は検証していません。
-- 受信不能・カード応答不良などの条件では再選局やTVの再起動が必要になることがあります。
-- 元の設定に戻す場合は、TVのAPKで「セットアップ前の状態に戻す」を実行してから再起動します。初回導入前から開発用設定があった場合は、その状態へ戻ります。
+rem 今のデーモンをバックアップとしてPCに保存しておく（任意・推奨）
+adb -s <TVのIPアドレス>:5555 pull /data/local/tmp/libtsd.so libtsd_backup.so
 
-## 接続情報の扱い
+rem 新しいデーモンをTVへ送る
+adb -s <TVのIPアドレス>:5555 push libtsd_release.so /data/local/tmp/libtsd.apk-new.so
 
-機器固有の接続キーはTVのroot専用ファイルと、PC側のINIに保存します。セットアップツールはINIとそのバックアップを現在のWindowsユーザーおよびSYSTEMだけが読めるように設定します。実際のINI、接続キー、署名秘密鍵、放送TS、ベンダーライブラリーはリポジトリに含めません。
+rem 実行権限とラベルを付けて、本番ファイルに差し替える（Magiskの許可ダイアログが出たら許可）
+adb -s <TVのIPアドレス>:5555 shell su -c 'chmod 755 /data/local/tmp/libtsd.apk-new.so; chcon u:object_r:vendor_file:s0 /data/local/tmp/libtsd.apk-new.so; mv /data/local/tmp/libtsd.apk-new.so /data/local/tmp/libtsd.so'
 
-開発：Long0823-1。自作部分は [MIT License](LICENSE)。TVTestなど外部ソフトはそれぞれのライセンスに従って入手してください。
+rem TVを再起動すると新しいデーモンが読み込まれる
+adb -s <TVのIPアドレス>:5555 reboot
+```
 
-## v0.4.1への更新
+再起動後1〜2分待ってから、TVTestで受信できるか確認してください。戻したい場合は、バックアップした `libtsd_backup.so` を同じ手順で送り直します。
 
-TVTestを閉じて新しいAPKでセットアップし、TVを再起動します。Windowsツールの「2. 接続設定・局一覧を更新」を実行し、TVTestのチャンネルスキャンをやり直してください。v0.3.0の局一覧は利用できます。旧DLLだけの差し替えではTV側の復号処理は更新されないため、APKも更新してください。
+## 困ったとき
 
-## Androidスマートフォンで視聴
+- **Permission denied と出る**: Magiskで対象アプリ（またはADBシェル）への許可を確認し、セットアップをやり直す
+- **ADBに接続できない**: TVとPCが同じLANにあるか、TV側で接続許可をしたかを確認する
+- **映像が出ない**: TV本体でその放送が受信できる状態か、TVTestのMPEG-2デコーダーが設定されているかを確認する
 
-独立アプリ[TCLTV-Android-Viewer](https://github.com/Long0823-1/TCLTV-Android-Viewer)を使用できます。TVセットアップAPK 0.6.0では、スマホへ確認コードで接続情報・局一覧を渡す機能を追加しました。[接続手順](docs/mobile-pairing.md)を参照してください。
+その他のトラブルシュートは `docs/SETUP.md` の「困ったとき」を参照してください。
 
-## Support / 開発支援
+## 本家からの主な変更点
 
-開発・保守活動をKo-fiで支援できます。
+- チャンネルカタログとBonDriver INIに `System=`（ISDB-T / ISDB-S）を導入し、BonDriverに2つのチューニング空間（Terrestrial / Satellite BS/CS）を実装
+- 衛星選局パラメータを実機で検証・確定
+  - デモジュレータ設定 `{tuner, mode=8, LバンドIF周波数(kHz), 0, sat_id, 0, 0}`（sat_id: BS=59 / CS=60）
+- ベンダーチャンネルDBの「ルート」（地上=4 / 衛星=8）を選局ごとに切り替え、TVの表示系統に依存しない選局を実現
+- TVアプリの自動EPG収集では衛星チャンネルをスキップし、視聴チューナーとの競合を解消
+- TVTestのチャンネルスキャンに対応（選局の成功条件を「ストリーム開始時点」に緩和、各段階のタイムアウトも短縮）
+- TV用アプリのパッケージ名を `app.tcltv3wave`、アプリ名を「32S5400 3波対応版」に変更
 
-[Ko-fiで支援する](https://ko-fi.com/long0823)
+## 構成
+
+| ディレクトリ | 内容 |
+|---|---|
+| `android/` | TV用セットアップAPK（`assets/` にデーモン実体・導入スクリプト） |
+| `native/` | 常駐デーモン `libtsd.so` と制御ツール `tsctl` のソース |
+| `bondriver/` | Windows用 BonDriver DLL（x86/x64）のソース |
+| `windows/` | Windows用セットアップツール（チャンネルカタログ生成）のソース |
+| `docs/` | 設計・セットアップ等のドキュメント |
+
+通信ポート: TS配信 TCP 40556（チューナー0）/ 40558（チューナー1）、制御 TCP 40557（キー認証）。
+
+## ビルド
+
+- ネイティブデーモン（NDK r26d）:
+  ```
+  clang --target=armv7a-linux-androideabi21 --sysroot=<NDK>/sysroot \
+    -shared -fPIC -O2 -Wall -Wextra -Werror \
+    native/tsd.c native/tsd_psi.c -ldl -llog -o libtsd.so
+  ```
+- Windowsツール: `windows/build.ps1`（.NET Framework 4.x コンパイラ）
+- Android APK: `android/build.ps1`（Android SDK Platform 35 / Build-Tools 36.0.0、要JDK）
+
+## 制限事項
+
+- 検証済みは TCL 32S5400 のみです
+- 未契約の有料チャンネルは視聴できません（チャンネルスキャンへの登録はされます）
+- APKを自前ビルドした場合、署名が変わるため、既存のセットアップアプリがある場合は先にアンインストールが必要です
+
+## 謝辞
+
+このプロジェクトは、**Long0823-1 さん**が開発・公開された [TCLTV-Bondriver](https://github.com/Long0823-1/TCLTV-Bondriver) をベースにしたフォークです。
+
+TV側の配信デーモン、セットアップアプリ、Windowsツール、BonDriverというシステム全体の設計と実装、そして実機検証に必要な [Magisk適用済みbootイメージ](https://github.com/Long0823-1/TCL-G06-Magisk-Boot) の公開まで、そのすべてがLong0823-1さんの成果です。本フォークの変更は、その土台の上に衛星放送（BS/110度CS）の視聴を可能にするための追加です。
+
+Long0823-1さんに、心から感謝いたします。
+
+- 本家リポジトリ: https://github.com/Long0823-1/TCLTV-Bondriver
+
+## ライセンス
+
+MIT License（`LICENSE` を参照）。
+
+Copyright (c) 2026 Long0823-1（本家プロジェクト）
