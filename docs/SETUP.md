@@ -83,6 +83,14 @@ TVTest.exeから32bit/64bitを判別し、次の2本を配置します。
 
 それぞれ別の局を選べば同時受信できます。TV側ではYouTubeなど別のアプリを前面で使用できます。
 
+## EpgDataCap_Bon（EDCB）で使う
+
+EpgDataCap_Bonでも同じBonDriver DLLが使えます（実機確認済み）。配置場所がTVTestと違うので注意してください。
+
+1. EpgDataCap_Bon.exe（**x64版**。DLLがx64のためx86版からは読み込めません）の隣に **`BonDriver` という名前のフォルダー**を作り、その中に `BonDriver_TCLG06.dll` と `BonDriver_TCLG06.ini`（2系統目は `_1` の組も）を入れます。exeの隣に直接置いても「BonDriverが見つかりません」になり、読み込まれません。
+2. チャンネル設定（ChSet4）がないとサービス一覧が空になります。EpgDataCap_Bonの「チャンネルスキャン」で作るか、INIの局一覧から生成した `BonDriver_TCLG06().ChSet4.txt` を、exeの隣の `Setting` フォルダーへ配置してください。
+3. EpgTimerSrvで予約録画する場合も、同じ `BonDriver` フォルダーと `Setting` フォルダーを参照します。
+
 ## ネットワークについて
 
 通常のルーター経由なら、PCとTVを同じLANに接続し、TVの有線IPv4アドレスを入力します。
