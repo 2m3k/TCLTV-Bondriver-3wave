@@ -11,6 +11,11 @@ class ChannelCatalogTests {
   var list=ChannelCatalog.Parse(rows);Check(list.Count==3,"deduplicate and filter");Check(list[0].Name=="札幌のテレビ, HD=1","numeric order and name punctuation");Check(list[0].Onid==40002&&list[0].Tsid==41002,"distinct ONID and TSID");Check(list[2].System=="ISDB-S","include satellite services");
   var first=ChannelCatalog.FirstFromIni(ChannelCatalog.Ini(list));Check(first.Command=="40002 41002 2","INI tuple roundtrip");Check(ChannelCatalog.Ini(list).Contains("Name=011 札幌のテレビ, HD=1"),"Japanese names");
   Check(ChannelCatalog.Parse(Row(1,"標準TV","1",service:"SERVICE_TYPE_AUDIO_VIDEO")).Count==1,"standard service type");
+  int skippedSatellite,skippedTerrestrial;var partial=ChannelCatalog.Parse(Row(1,"地上波","1")+Row(8,"NULL","301",type:"TYPE_ISDB_S")+Row(9,"NULL","31"),out skippedSatellite,out skippedTerrestrial);
+  Check(partial.Count==1&&skippedSatellite==1&&skippedTerrestrial==1,"count nameless rows per system");
+  string ch2=ChannelCatalog.Ch2(list);string[] ch2Lines=ch2.Split(new[]{"\r\n"},StringSplitOptions.RemoveEmptyEntries);
+  Check(ch2Lines.Length==5,"ch2 header plus entries");Check(ch2Lines[0].StartsWith("; TVTest channel settings"),"ch2 header");
+  Check(ch2Lines[3]=="081 大阪のテレビ,0,1,0,1,1,40001,41001,1","ch2 terrestrial entry");Check(ch2Lines[4]=="101 衛星,1,0,0,1,3,40001,41001,1","ch2 satellite entry");
   Fails("No result found.","empty query");Fails(Row(0,"invalid","1"),"zero service");Fails(Row(70000,"invalid","1"),"out of range service");Fails(Row(1,"NULL","1"),"missing name");Fails(Row(1,new string('x',201),"1"),"long name");
   var many=new System.Text.StringBuilder();for(int i=1;i<=513;i++)many.Append(Row(i,"test",i.ToString()));Fails(many.ToString(),"bounded service count");
   if(args.Length>0){var actual=ChannelCatalog.Parse(File.ReadAllText(args[0]));Check(actual.Count>13,"real TV exceeds old presets");File.WriteAllText(args[1],ChannelCatalog.Ini(actual),System.Text.Encoding.Unicode);Console.WriteLine("real_tv_services="+actual.Count);}

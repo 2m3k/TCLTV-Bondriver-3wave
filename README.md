@@ -61,12 +61,12 @@ Windowsツールで **「2. 接続設定・局一覧を更新」** を押しま�
 
 1. Windowsツールの **「3. 配信をテスト」** で受信を確認する
 2. TVTestを起動し、チューナーとして `BonDriver_TCLG06.dll`（2系統目は `BonDriver_TCLG06_1.dll`）を選ぶ
-3. TVTestのチャンネルスキャンで `Terrestrial ISDB-T` と `Satellite BS/CS ISDB-S` をそれぞれスキャンする
+3. 手順3でTVTest用チャンネル設定（`.ch2`）も自動生成されるため、**TVTestでのチャンネルスキャンは不要**です
 4. 地デジ・BS・CSを選局して映像・音声が出れば完了です
 
 ## デーモン（libtsd.so）を手動で差し替える手順
 
-デーモン本体はTV内の **`/data/local/tmp/libtsd.so`** という1ファイルだけです。新しい `libtsd.so`（例: `libtsd_release.so`）が配布された場合は、セットアップをやり直さなくても、このファイルを差し替えるだけで更新できます。
+デーモン本体はTV内の **`/data/local/tmp/libtsd.so`** という1ファイルだけです。新しい `libtsd.so`（例: `libtsd_release.so`）が配布された場合は、セットアップをやり直さなくても、このファイルを差し替えるだけで更新できます。Windowsツールの **「4. デーモンのみ更新」** からも実行できます（現在のデーモンを `libtsd_backup.so` へ保存してから差し替え、TVを再起動します）。手動で行う場合は以下の手順です。
 
 PCのコマンドプロンプトで、Platform-Toolsのフォルダーから実行します（`<TVのIPアドレス>` はTVのIPに読み替え。USB接続で機器が1台だけの場合は `-s <TVのIPアドレス>:5555` の部分は不要です）。
 

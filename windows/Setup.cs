@@ -18,7 +18,8 @@ namespace TclBonDriverSetup {
   readonly TextBox adbSerial=new TextBox(),host=new TextBox(),destination=new TextBox(),log=new TextBox();
   readonly ComboBox networkMode=new ComboBox();
   readonly CheckBox dual=new CheckBox(),autoIp=new CheckBox();
-  readonly Button install=new Button(),pair=new Button(),test=new Button(),browse=new Button(),detect=new Button();
+  readonly Button install=new Button(),pair=new Button(),test=new Button(),browse=new Button(),detect=new Button(),daemon=new Button();
+  string daemonFile=null;
   readonly string root=AppDomain.CurrentDomain.BaseDirectory;
   public SetupForm() {
    Text="TCL BonDriver セットアップ v0.1-beta";ClientSize=new Size(780,610);MinimumSize=new Size(720,590);Font=new Font("Yu Gothic UI",10);StartPosition=FormStartPosition.CenterScreen;
@@ -28,16 +29,17 @@ namespace TclBonDriverSetup {
    var intro=new Label {Text="TV用APKを導入し、PCの視聴ソフトへBonDriverを配置します。v0.1-beta：地デジ・BS・110度CSの3波対応版。",AutoSize=true,Margin=new Padding(0,10,0,15)};panel.Controls.Add(intro,0,1);panel.SetColumnSpan(intro,3);
    AddField(panel,2,"ADB接続先",adbSerial,"");AddField(panel,3,"TVの接続先IP",host,"");detect.Text="IP取得";detect.Dock=DockStyle.Fill;panel.Controls.Add(detect,2,3);AddField(panel,4,"TVTestのフォルダー",destination,"");browse.Text="選択…";browse.Dock=DockStyle.Fill;panel.Controls.Add(browse,2,4);
    browse.Click+=(s,e)=>{using(var d=new FolderBrowserDialog()) {d.Description="TVTest.exeがあるフォルダー";if(d.ShowDialog(this)==DialogResult.OK)destination.Text=d.SelectedPath;}};
-   install.Text="1. APKをTVへ導入";pair.Text="2. 接続設定・局一覧を更新";test.Text="3. 配信をテスト";
-   var buttons=new FlowLayoutPanel {AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,18,0,10)};foreach(var b in new[]{install,pair,test}) {b.AutoSize=true;b.MinimumSize=new Size(195,38);buttons.Controls.Add(b);}dual.Text="2チューナー分のBonDriverを配置する";dual.Checked=true;dual.AutoSize=true;panel.Controls.Add(dual,0,5);panel.SetColumnSpan(dual,3);
+   install.Text="1. APKをTVへ導入";pair.Text="2. 接続設定・局一覧を更新";test.Text="3. 配信をテスト";daemon.Text="4. デーモンのみ更新";
+   var buttons=new FlowLayoutPanel {AutoSize=true,Dock=DockStyle.Fill,Margin=new Padding(0,18,0,10)};foreach(var b in new[]{install,pair,test,daemon}) {b.AutoSize=true;b.MinimumSize=new Size(195,38);buttons.Controls.Add(b);}dual.Text="2チューナー分のBonDriverを配置する";dual.Checked=true;dual.AutoSize=true;panel.Controls.Add(dual,0,5);panel.SetColumnSpan(dual,3);
    autoIp.Text="TVのIPを自動取得";autoIp.Checked=true;autoIp.AutoSize=true;buttons.Controls.Add(autoIp);networkMode.DropDownStyle=ComboBoxStyle.DropDownList;networkMode.Items.AddRange(new object[]{"自動（有線LAN優先）","有線LAN","Wi-Fi"});networkMode.SelectedIndex=0;networkMode.Width=180;buttons.Controls.Add(networkMode);panel.Controls.Add(buttons,0,6);panel.SetColumnSpan(buttons,3);
    var hint=new Label {AutoSize=true,Text="初回：TVのAPKでrootを許可し、セットアップ後に再起動してください。\n更新時：TVのAPKで「画面消灯中の通信維持を有効にする」を選びます。IPTVのM3UはTV画面から確認できます。\nUSB接続の場合、ADB接続先を空欄にすると接続中の1台を自動選択します。"};panel.Controls.Add(hint,0,7);panel.SetColumnSpan(hint,3);
    log.Multiline=true;log.ReadOnly=true;log.ScrollBars=ScrollBars.Vertical;log.Dock=DockStyle.Fill;log.BackColor=Color.FromArgb(245,247,249);panel.Controls.Add(log,0,8);panel.SetColumnSpan(log,3);for(int i=0;i<8;i++)panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
    install.Click+=async(s,e)=>await Work(InstallApk);pair.Click+=async(s,e)=>await Work(Pair);test.Click+=async(s,e)=>await Work(TestStream);detect.Click+=async(s,e)=>await Work(()=>DetectHost(Device()));
+   daemon.Click+=async(s,e)=>{using(var d=new OpenFileDialog()) {d.Title="更新するデーモン（libtsd.so）を選択";d.Filter="libtsd.so|*.so";if(d.ShowDialog(this)!=DialogResult.OK)return;daemonFile=d.FileName;}await Work(UpdateDaemon);};
   }
   static void AddField(TableLayoutPanel p,int row,string label,TextBox field,string value) {p.Controls.Add(new Label {Text=label,AutoSize=true,Anchor=AnchorStyles.Left},0,row);field.Text=value;field.Dock=DockStyle.Fill;field.Margin=new Padding(0,5,0,5);p.Controls.Add(field,1,row);}
   void Note(string value) {if(InvokeRequired) {BeginInvoke(new Action<string>(Note),value);return;}log.AppendText(DateTime.Now.ToString("HH:mm:ss")+"  "+value+Environment.NewLine);}
-  async Task Work(Action operation) {foreach(var b in new[]{install,pair,test,browse,detect})b.Enabled=false;dual.Enabled=false;autoIp.Enabled=false;networkMode.Enabled=false;try {await Task.Run(operation);}catch(Exception ex) {Note("完了できませんでした："+ex.Message);}finally {foreach(var b in new[]{install,pair,test,browse,detect})b.Enabled=true;dual.Enabled=true;autoIp.Enabled=true;networkMode.Enabled=true;}}
+  async Task Work(Action operation) {foreach(var b in new[]{install,pair,test,browse,detect,daemon})b.Enabled=false;dual.Enabled=false;autoIp.Enabled=false;networkMode.Enabled=false;try {await Task.Run(operation);}catch(Exception ex) {Note("完了できませんでした："+ex.Message);}finally {foreach(var b in new[]{install,pair,test,browse,detect,daemon})b.Enabled=true;dual.Enabled=true;autoIp.Enabled=true;networkMode.Enabled=true;}}
   bool UseDual() {return (bool)Invoke(new Func<bool>(()=>dual.Checked));}
   string ReadText(TextBox field) {return (string)Invoke(new Func<string>(()=>field.Text.Trim()));}
   static string Q(string arg) {if(arg.IndexOf('"')>=0||arg.IndexOf('\n')>=0||arg.IndexOf('\r')>=0)throw new ArgumentException("入力に使用できない文字があります。");return "\""+arg+"\"";}
@@ -82,17 +84,33 @@ namespace TclBonDriverSetup {
    string serial=Device(),server=Server(serial);Note("TVの接続設定を取得しています…");string token=Adb("-s "+Q(serial)+" shell su -c 'cat /data/local/tmp/tsd_token'",20).Trim();if(!Regex.IsMatch(token,@"\A[0-9a-fA-F]{64}\z"))throw new IOException("接続キーを取得できません。TVのセットアップと、ADBへのroot許可を確認してください。");string status=Control(server,token,"STATUS");if(!status.StartsWith("OK "))throw new IOException("TVとの認証に失敗しました。");
    Note("TV本体のスキャン結果から地上波・BS・CSの局一覧を取得しています…");
    string rows=Adb("-s "+Q(serial)+" shell su -c 'content query --uri content://android.media.tv/channel --projection display_number:original_network_id:transport_stream_id:service_id:type:service_type:browsable:display_name'",30);
-   var channels=ChannelCatalog.Parse(rows);string catalog=ChannelCatalog.Ini(channels);
+   int skippedSatellite,skippedTerrestrial;var channels=ChannelCatalog.Parse(rows,out skippedSatellite,out skippedTerrestrial);string catalog=ChannelCatalog.Ini(channels);
    int terrestrial=channels.FindAll(c=>c.System=="ISDB-T").Count,satellite=channels.Count-terrestrial;
    Note("地上波 "+terrestrial+"、BS/CS "+satellite+"サービスを取得しました（非表示・データ専用・4K専用局は対象外）。");
+   if(skippedSatellite>0)Note("注意：BS/CSの "+skippedSatellite+" 局は名前が取得できず除外されました。TVでBS（NHK BSなど）を表示してから、この手順を再実行すると全ての衛星局を取得できます。");
+   if(skippedTerrestrial>0)Note("注意：地上波の "+skippedTerrestrial+" 局は名前が取得できず除外されました。TVで地上波を表示してから、この手順を再実行すると全ての地上波局を取得できます。");
    int count=UseDual()?2:1;if(count==2&&!Regex.IsMatch(status,@"(?:^| )tuners=2(?: |$)"))throw new IOException("TV側の2チューナー対応サービスを確認できません。APKを更新してセットアップ・再起動してください。");
    for(int index=0;index<count;index++) {
     string name=index==0?"BonDriver_TCLG06":"BonDriver_TCLG06_1";
     string ini=Path.Combine(folder,name+".ini"),dll=Path.Combine(folder,name+".dll"),ch2=Path.Combine(folder,name+".ch2");bool changed=!File.Exists(ini)||!File.ReadAllText(ini).EndsWith(catalog,StringComparison.Ordinal);Backup(dll);Backup(ini);if(changed)Backup(ch2);File.Copy(source,dll,true);
-    File.WriteAllText(ini,"[Server]\r\nHost="+server+"\r\nPort="+(index==0?40556:40558)+"\r\n\r\n[Control]\r\nMode=Native\r\nPort=40557\r\nTunerIndex="+index+"\r\nToken="+token+"\r\n"+catalog,Encoding.Unicode);PrivateFile(ini);if(changed&&File.Exists(ch2)){File.Delete(ch2);Note(name+"：古いTVTest局設定をバックアップしました。チャンネルスキャンをやり直してください。");}
+    File.WriteAllText(ini,"[Server]\r\nHost="+server+"\r\nPort="+(index==0?40556:40558)+"\r\n\r\n[Control]\r\nMode=Native\r\nPort=40557\r\nTunerIndex="+index+"\r\nToken="+token+"\r\n"+catalog,Encoding.Unicode);PrivateFile(ini);
+    if(changed) {File.WriteAllText(ch2,ChannelCatalog.Ch2(channels),Encoding.GetEncoding(932));Note(name+"：TVTest用チャンネル設定（.ch2）を自動生成しました。");}
    }
    Note((x64?"64":"32")+"bit版を"+count+"系統分配置しました。");
-   Note(count==2?"TVTestを2つ起動し、BonDriver_TCLG06 と BonDriver_TCLG06_1 をそれぞれ選んでください。":"TVTestでBonDriver_TCLG06を選んでください。");Note("接続認証に成功しました。TVTestでチャンネルスキャンを行ってください。");
+   Note(count==2?"TVTestを2つ起動し、BonDriver_TCLG06 と BonDriver_TCLG06_1 をそれぞれ選んでください。":"TVTestでBonDriver_TCLG06を選んでください。");Note("接続認証に成功しました。TVTestではチャンネルスキャン不要で、そのまま選局できます。");
+  }
+  void UpdateDaemon() {
+   if(daemonFile==null||!File.Exists(daemonFile))throw new IOException("デーモンファイルを選択してください。");
+   string serial=Device();
+   string backup=Path.Combine(root,"libtsd_backup.so");
+   Note("現在のデーモンを "+backup+" へバックアップしています…");
+   Adb("-s "+Q(serial)+" pull /data/local/tmp/libtsd.so "+Q(backup),60);
+   Note("新しいデーモンをTVへ送っています…");
+   Adb("-s "+Q(serial)+" push "+Q(daemonFile)+" /data/local/tmp/libtsd.apk-new.so",60);
+   Adb("-s "+Q(serial)+" shell su -c 'chmod 755 /data/local/tmp/libtsd.apk-new.so; chcon u:object_r:vendor_file:s0 /data/local/tmp/libtsd.apk-new.so; mv /data/local/tmp/libtsd.apk-new.so /data/local/tmp/libtsd.so'",30);
+   Note("TVを再起動しています…");
+   Adb("-s "+Q(serial)+" reboot",20);
+   Note("デーモンのみ更新が完了しました。再起動後1〜2分待ってからTVTestで確認してください。戻す場合は libtsd_backup.so を選んで同じ操作を行ってください。");
   }
   static TcpClient Connect(string host,int port) {var client=new TcpClient();var pending=client.BeginConnect(host,port,null,null);using(pending.AsyncWaitHandle) {if(!pending.AsyncWaitHandle.WaitOne(5000)) {client.Close();throw new IOException("TVへの接続が時間切れになりました。");}client.EndConnect(pending);}client.ReceiveTimeout=3000;client.SendTimeout=3000;return client;}
   static string Control(string host,string token,string command) {using(var client=Connect(host,40557)) {client.ReceiveTimeout=command.StartsWith("TUNE ")?45000:3000;var stream=client.GetStream();byte[] bytes=Encoding.ASCII.GetBytes("AUTH "+token+" "+command+"\n");stream.Write(bytes,0,bytes.Length);using(var reader=new StreamReader(stream,Encoding.ASCII,false,1024)) {string line=reader.ReadLine();if(line==null||line.Length>1024)throw new IOException("TVからの応答を確認できません。");return line;}}}
