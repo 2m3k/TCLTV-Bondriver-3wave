@@ -21,9 +21,9 @@ TSは受信クライアントがいない間も読み捨ててリングを排出
 
 ## TVのチャンネルスキャン結果（v0.3.0）
 
-Windowsツールは初回設定・局更新時にroot ADBでTV Providerのchannelテーブルを読み、TYPE_ISDB_Tかつ表示対象のAVサービスを抽出する。EN_TCL_DTVおよびSERVICE_TYPE_AUDIO_VIDEOを受け付け、衛星・データ専用・非表示を除外。地域IDや局名の固定表は使用しない。
+Windowsツールは初回設定・局更新時にroot ADBでTV Providerのchannelテーブルを読み、TYPE_ISDB_T/TYPE_ISDB_Sかつ表示対象のAVサービスを抽出する。EN_TCL_DTVおよびSERVICE_TYPE_AUDIO_VIDEOを受け付け、4K専用TYPE_ISDB_S3・データ専用・非表示を除外。地域IDや局名の固定表は使用しない。INIにはISDB-T/Sの方式を保存し、BonDriverは別々のチューニング空間として列挙する。
 
-2系統のINIをUTF-16 LE BOM付きで保存し、[Channels] Countと[Channel0]以降のName/DisplayNumber/ONID/TSID/ServiceIDを使用。上限512件。DLLインスタンス生成時に読み、名前のポインターとチャンネルインデックスはインスタンス存続中に変更しない。更新後は視聴ソフトを閉じてDLLを読み直す。ONIDとTSIDは独立してTUNEへ送る。局一覧のない旧INIには地域プリセットでフォールバックしない。
+2系統のINIをUTF-16 LE BOM付きで保存し、[Channels] Countと[Channel0]以降のName/DisplayNumber/System/ONID/TSID/ServiceIDを使用。Systemの上限はISDB-T/ISDB-S、総局数上限は512件。DLLインスタンス生成時に読み、名前のポインターとチャンネルインデックスはインスタンス存続中に変更しない。更新後は視聴ソフトを閉じてDLLを読み直す。ONIDとTSIDは独立してTUNEへ送る。TV Provider DBの多重情報から衛星IDと周波数を識別し、ISDB-Sは衛星モードで選局する。局一覧のない旧INIには地域プリセットでフォールバックしない。
 
 局一覧が変わった場合のみ、対象BonDriverの.ch2をバックアップ・退避し、TVTestでの再スキャンを促す。同じ局一覧の更新では.ch2を保持する。日常のBonDriver動作は保存済みINIを読むためADB不要。TVの起動時は有効な保存局を復元し、ない場合はTV Providerの地デジ登録から初期局を選ぶ。
 
