@@ -37,7 +37,7 @@ public final class MainActivity extends Activity {
  private static final int COL_DANGER=Color.rgb(96,34,32);
  private static final int COL_DANGER_FOCUS=Color.rgb(133,44,40);
  private static final int COL_TEXT=Color.rgb(227,235,238);
- private static final int COL_MUTED=Color.rgb(169,188,196);
+ private static final int COL_MUTED=Color.rgb(192,208,215);
  private static final int COL_ACCENT=Color.rgb(125,218,190);
  private static final int COL_OK=Color.rgb(105,222,155);
  private static final int COL_OFF=Color.rgb(140,155,163);
@@ -59,24 +59,24 @@ public final class MainActivity extends Activity {
   parent.addView(v);return v;
  }
  private TextView note(LinearLayout parent,String value) {
-  TextView v=text(value,13,COL_MUTED);v.setPadding(dp(4),dp(2),dp(4),dp(6));parent.addView(v);return v;
+  TextView v=text(value,14,COL_MUTED);v.setPadding(dp(4),dp(2),dp(4),dp(6));parent.addView(v);return v;
  }
  @Override public void onCreate(Bundle saved) {
   super.onCreate(saved);
   ScrollView scroll=new ScrollView(this);
   LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(48),dp(18),dp(48),dp(18));root.setBackgroundColor(COL_BG);scroll.addView(root);setContentView(scroll);
-  TextView title=text("32S5400 3波対応版",24,Color.WHITE);title.setTypeface(null,android.graphics.Typeface.BOLD);root.addView(title);
-  root.addView(text("テレビで別のアプリを使いながら、PCで異なる地上波・BS・CS局を同時受信",13,COL_MUTED));
+  TextView title=text("32S5400 3波対応版",26,Color.WHITE);title.setTypeface(null,android.graphics.Typeface.BOLD);root.addView(title);
+  root.addView(text("テレビで別のアプリを使いながら、PCで異なる地上波・BS・CS局を同時受信",14,COL_MUTED));
   // ---- Status dashboard card ----
-  LinearLayout dash=card(root);dash.setPadding(dp(20),dp(12),dp(20),dp(12));
+  LinearLayout dash=card(root);dash.setPadding(dp(20),dp(8),dp(20),dp(8));
   LinearLayout.LayoutParams dashLp=(LinearLayout.LayoutParams)dash.getLayoutParams();dashLp.setMargins(0,dp(16),0,dp(4));
-  TextView dashLabel=text("いまの状態",13,COL_ACCENT);dash.addView(dashLabel);
+  TextView dashLabel=text("いまの状態",14,COL_ACCENT);dash.addView(dashLabel);
   LinearLayout dashCols=new LinearLayout(this);dashCols.setOrientation(LinearLayout.HORIZONTAL);dash.addView(dashCols);
   LinearLayout dashL=new LinearLayout(this);dashL.setOrientation(LinearLayout.VERTICAL);dashL.setPadding(0,0,dp(10),0);dashCols.addView(dashL,new LinearLayout.LayoutParams(0,-2,1));
   LinearLayout dashR=new LinearLayout(this);dashR.setOrientation(LinearLayout.VERTICAL);dashR.setPadding(dp(10),0,0,0);dashCols.addView(dashR,new LinearLayout.LayoutParams(0,-2,1));
-  network=text("有線LAN IP：確認中…",15,COL_ACCENT);network.setTextIsSelectable(true);network.setPadding(0,dp(6),0,0);dashL.addView(network);
-  tunerState=text("チューナー状態：確認中…",15,COL_TEXT);tunerState.setPadding(0,dp(6),0,0);dashR.addView(tunerState);
-  status=text("初めて使う場合は「1. セットアップ」を選んでください。",15,Color.WHITE);status.setPadding(0,dp(8),0,dp(4));dashR.addView(status);
+  network=text("有線LAN IP：確認中…",17,COL_ACCENT);network.setTextIsSelectable(true);network.setLineSpacing(0,1.15f);network.setPadding(0,dp(6),0,0);dashL.addView(network);
+  tunerState=text("チューナー状態：確認中…",19,COL_TEXT);tunerState.setTypeface(null,android.graphics.Typeface.BOLD);tunerState.setPadding(0,dp(6),0,0);dashR.addView(tunerState);
+  status=text("初めて使う場合は「1. セットアップ」を選んでください。",17,Color.WHITE);status.setLineSpacing(0,1.25f);status.setPadding(0,dp(8),0,dp(4));dashR.addView(status);
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setIndeterminate(true);progress.setVisibility(View.GONE);dash.addView(progress);
   pairingInfo=text("",26,COL_ACCENT);pairingInfo.setFocusable(true);pairingInfo.setVisibility(View.GONE);root.addView(pairingInfo);
   // ---- Category tiles (2x2) + collapsible sections ----
@@ -116,13 +116,13 @@ public final class MainActivity extends Activity {
   button(sections[2],"通信維持を停止する",0,()->perform("通信維持を停止しています…",()->{NetworkService.enable(this,false);TclPolicy.configure(this,false);return "通信維持を停止しました。";}));
   note(sections[2],"通信維持中は深い待機に入らず消費電力が増えます。AC給電中の自動消灯も抑制しますが、リモコンで画面は消せます。");
   // ---- Maintenance ----
-  details=text("",13,COL_MUTED);details.setTextIsSelectable(true);details.setPadding(dp(4),dp(4),0,dp(8));sections[3].addView(details);
+  details=text("",14,COL_MUTED);details.setTextIsSelectable(true);details.setPadding(dp(4),dp(4),0,dp(8));sections[3].addView(details);
   restore=button(sections[3],"セットアップ前の状態に戻す",2,()->new AlertDialog.Builder(this).setTitle("元の状態に戻しますか？").setMessage("保存済みの設定を復元します。反映にはテレビの再起動が必要です。").setNegativeButton("戻る",null).setPositiveButton("復元",(d,w)->perform("設定を復元しています…",()->{extract();NetworkService.enable(this,false);TclPolicy.configure(this,false);return root("sh "+quote(new File(stage,"restore.sh").getAbsolutePath()),60);})).show());
   note(sections[3],"対応環境：TCL G06 日本向け・Magisk導入済み\n初回はMagiskのroot許可が必要です。");
   tiles[0].requestFocus();
  }
  private Button tileButton(LinearLayout parent,String label,Runnable click) {
-  Button b=new Button(this);b.setText(label);b.setTextSize(17);b.setAllCaps(false);b.setFocusable(true);b.setMinHeight(dp(54));b.setTextColor(Color.WHITE);
+  Button b=new Button(this);b.setText(label);b.setTextSize(19);b.setAllCaps(false);b.setFocusable(true);b.setMinHeight(dp(50));b.setTextColor(Color.WHITE);
   b.setBackground(shape(COL_BTN,16,0,0));
   b.setOnClickListener(v->click.run());
   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(3),dp(3),dp(3),dp(3));parent.addView(b,lp);return b;
@@ -160,7 +160,7 @@ public final class MainActivity extends Activity {
     StringBuilder target=ethernet?wired:wifi;java.util.Enumeration<java.net.InetAddress> addresses=iface.getInetAddresses();
     while(addresses.hasMoreElements()) {java.net.InetAddress address=addresses.nextElement();if(address instanceof java.net.Inet4Address&&!address.isLoopbackAddress()) {if(target.length()>0)target.append(" / ");target.append(address.getHostAddress());}}
    }
-   network.setText("有線LAN IP："+(wired.length()==0?"未接続・IPv4未取得":wired.toString())+"\nWi-Fi IP："+(wifi.length()==0?"未接続・IPv4未取得":wifi.toString())+"\nPC・スマートフォンの接続先IP（PCセットアップ時は自動取得できます）\n"+NetworkService.state+"\n"+NetworkService.epgStatus());
+   network.setText("有線LAN IP："+(wired.length()==0?"未接続・IPv4未取得":wired.toString())+"\nWi-Fi IP："+(wifi.length()==0?"未接続・IPv4未取得":wifi.toString())+"\n接続先IP（PCセットアップ時は自動取得できます）\n"+NetworkService.state+"\n"+NetworkService.epgStatus());
   }catch(Exception error) {network.setText("IPを取得できません。TVのネットワーク設定を確認してください。");}
  }
  private long lastTunerCheck;
@@ -178,7 +178,7 @@ public final class MainActivity extends Activity {
     sb.append("チューナー1：");
     int s1=sb.length();sb.append("●");sb.setSpan(new android.text.style.ForegroundColorSpan(first?COL_OK:COL_OFF),s1,s1+1,0);
     sb.append(first?" 配信中":" 停止中");
-    sb.append("　　チューナー2：");
+    sb.append("\nチューナー2：");
     int s2=sb.length();sb.append("●");sb.setSpan(new android.text.style.ForegroundColorSpan(second?COL_OK:COL_WAIT),s2,s2+1,0);
     sb.append(second?" 配信中":" 選局待ち");
     line=sb;
@@ -195,7 +195,7 @@ public final class MainActivity extends Activity {
  private Button button(LinearLayout parent,String label,int style,Runnable click) {
   final int base=style==1?COL_PRIMARY:(style==2?COL_DANGER:COL_BTN);
   final int focus=style==1?COL_PRIMARY_FOCUS:(style==2?COL_DANGER_FOCUS:COL_BTN_FOCUS);
-  Button button=new Button(this);button.setText(label);button.setTextSize(16);button.setAllCaps(false);button.setFocusable(true);button.setMinHeight(dp(46));button.setTextColor(Color.WHITE);
+  Button button=new Button(this);button.setText(label);button.setTextSize(18);button.setAllCaps(false);button.setFocusable(true);button.setMinHeight(dp(52));button.setTextColor(Color.WHITE);
   button.setBackground(shape(base,16,0,0));
   button.setOnFocusChangeListener((v,hasFocus)->button.setBackground(shape(hasFocus?focus:base,16,hasFocus?Color.WHITE:0,hasFocus?2:0)));
   button.setOnClickListener(v->click.run());
