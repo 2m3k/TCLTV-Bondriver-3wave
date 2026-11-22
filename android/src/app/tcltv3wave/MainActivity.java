@@ -22,6 +22,11 @@ public final class MainActivity extends Activity {
  private boolean destroyed;
  private volatile boolean tunerCheckRunning;
  private int openSection=0;
+ private boolean userChoseSection=false;
+ private boolean autoSectionDone=false;
+ private volatile boolean tunerAnyRunning=false;
+ private LinearLayout[] sectionArr;
+ private Button[] tileArr;
  // Material You style palette (dark, teal seed)
  private static final int COL_BG=Color.rgb(13,18,22);
  private static final int COL_CARD=Color.rgb(27,35,41);
@@ -84,11 +89,12 @@ public final class MainActivity extends Activity {
   for(int i=0;i<4;i++){
    sections[i]=new LinearLayout(this);sections[i].setOrientation(LinearLayout.VERTICAL);
    final int idx=i;
-   tiles[i]=tileButton(idx<2?grow1:grow2,catNames[i],()->showSection(sections,tiles,idx));
+   tiles[i]=tileButton(idx<2?grow1:grow2,catNames[i],()->{userChoseSection=true;showSection(sections,tiles,idx);});
   }
   for(final Button t:tiles)t.setOnFocusChangeListener((v,f)->refreshTiles(tiles));
   for(int i=0;i<4;i++){root.addView(sections[i]);sections[i].setVisibility(i==0?View.VISIBLE:View.GONE);}
   refreshTiles(tiles);
+  sectionArr=sections;tileArr=tiles;
   // ---- Setup section ----
   setup=button(sections[0],"1. セットアップ",1,()->perform("対応環境を確認し、セットアップしています…",()->{
    extract();String output=root("sh "+quote(new File(stage,"install.sh").getAbsolutePath())+" "+quote(stage.getAbsolutePath()),90);
@@ -113,7 +119,7 @@ public final class MainActivity extends Activity {
   details=text("",13,COL_MUTED);details.setTextIsSelectable(true);details.setPadding(dp(4),dp(4),0,dp(8));sections[3].addView(details);
   restore=button(sections[3],"セットアップ前の状態に戻す",2,()->new AlertDialog.Builder(this).setTitle("元の状態に戻しますか？").setMessage("保存済みの設定を復元します。反映にはテレビの再起動が必要です。").setNegativeButton("戻る",null).setPositiveButton("復元",(d,w)->perform("設定を復元しています…",()->{extract();NetworkService.enable(this,false);TclPolicy.configure(this,false);return root("sh "+quote(new File(stage,"restore.sh").getAbsolutePath()),60);})).show());
   note(sections[3],"対応環境：TCL G06 日本向け・Magisk導入済み\n初回はMagiskのroot許可が必要です。");
-  setup.requestFocus();
+  tiles[0].requestFocus();
  }
  private Button tileButton(LinearLayout parent,String label,Runnable click) {
   Button b=new Button(this);b.setText(label);b.setTextSize(17);b.setAllCaps(false);b.setFocusable(true);b.setMinHeight(dp(54));b.setTextColor(Color.WHITE);
@@ -133,6 +139,12 @@ public final class MainActivity extends Activity {
   for(int i=0;i<sections.length;i++)sections[i].setVisibility(i==idx?View.VISIBLE:View.GONE);
   refreshTiles(tiles);
   for(int i=0;i<sections[idx].getChildCount();i++){View c=sections[idx].getChildAt(i);if(c instanceof Button){c.requestFocus();break;}}
+ }
+ private void showSectionQuiet(int idx) {
+  if(sectionArr==null||idx==openSection)return;
+  openSection=idx;
+  for(int i=0;i<sectionArr.length;i++)sectionArr[i].setVisibility(i==idx?View.VISIBLE:View.GONE);
+  refreshTiles(tileArr);
  }
  private void showIptv(){StringBuilder urls=new StringBuilder(NetworkService.state+"\n"+NetworkService.epgStatus()+"\n\n");String code=NetworkService.accessCode(this);try{java.util.Enumeration<java.net.NetworkInterface> interfaces=java.net.NetworkInterface.getNetworkInterfaces();while(interfaces.hasMoreElements()){java.net.NetworkInterface iface=interfaces.nextElement();if(!iface.isUp()||iface.isLoopback())continue;java.util.Enumeration<java.net.InetAddress> addresses=iface.getInetAddresses();while(addresses.hasMoreElements()){java.net.InetAddress address=addresses.nextElement();if(!(address instanceof java.net.Inet4Address))continue;String base="http://"+address.getHostAddress()+":40560/iptv/"+code+"/playlist.m3u?tuner=";urls.append(iface.getName()).append(" · チューナー1\n").append(base).append("0\n\nチューナー2\n").append(base).append("1\n\n番組表XML（両チューナー共通）\n").append(base.substring(0,base.indexOf("playlist.m3u"))).append("epg.xml\n\n");}}}catch(Exception ignored){}urls.append("先に通信維持を有効にしてください。URLをIPTVアプリやVLCへ登録します。同じチューナーはBonDriver・スマホと同時使用しないでください。URLは専用の接続キーを含むため公開しないでください。");TextView text=text(urls.toString(),16,Color.WHITE);text.setTextIsSelectable(true);text.setPadding(dp(20),dp(20),dp(20),dp(20));ScrollView scroll=new ScrollView(this);scroll.addView(text);new AlertDialog.Builder(this).setTitle("IPTV / M3U / XMLTV").setView(scroll).setPositiveButton("閉じる",null).show();}
  private void pairPhone(){if(pairing!=null){pairing.close();pairing=null;stopPhoneAdvertisement();pairingInfo.setVisibility(View.GONE);pairButton.setText("スマートフォンを接続（確認コードを表示）");status.setText("スマートフォンの接続受付を終了しました");return;}pairButton.setEnabled(false);status.setText("スマートフォン用の設定を準備しています…");worker.submit(()->{try{byte[] data=PhonePairing.export(this);runOnUiThread(()->{if(destroyed)return;pairButton.setEnabled(true);try{pairing=new PhonePairing(data,message->runOnUiThread(()->{if(!destroyed){status.setText(message);pairing=null;stopPhoneAdvertisement();pairingInfo.setVisibility(View.GONE);pairButton.setText("スマートフォンを接続（確認コードを表示）");}}));advertisePhone();pairingInfo.setText("確認コード  "+pairing.code+"\nスマホにTVのIPとこの6桁を入力してください。\n2分間・1回のみ有効です。TVで他のアプリを開くと無効になります。");pairingInfo.setVisibility(View.VISIBLE);pairButton.setText("スマートフォンの接続受付を終了");pairingInfo.requestFocus();status.setText("スマートフォンの接続を待っています");}catch(Exception e){status.setText("接続の受付を開始できません。もう一度お試しください。");}});}catch(Exception e){runOnUiThread(()->{if(!destroyed){pairButton.setEnabled(true);status.setText(e.getMessage());}});}});}
@@ -161,6 +173,7 @@ public final class MainActivity extends Activity {
    try {
     String output=root("/data/local/tmp/tsctl --status",15);
     boolean first=output.contains(" running=1 "),second=output.contains(" tuner1_ready=1 ");
+    tunerAnyRunning=first||second;
     android.text.SpannableStringBuilder sb=new android.text.SpannableStringBuilder();
     sb.append("チューナー1：");
     int s1=sb.length();sb.append("●");sb.setSpan(new android.text.style.ForegroundColorSpan(first?COL_OK:COL_OFF),s1,s1+1,0);
@@ -171,7 +184,7 @@ public final class MainActivity extends Activity {
     line=sb;
    } catch(Exception error) { line="チューナー状態：未確認（セットアップ後に表示されます）"; }
    final CharSequence result=line;
-   runOnUiThread(()->{tunerCheckRunning=false;if(!destroyed)tunerState.setText(result);});
+   runOnUiThread(()->{tunerCheckRunning=false;if(!destroyed){tunerState.setText(result);if(!userChoseSection&&!autoSectionDone){autoSectionDone=true;showSectionQuiet(tunerAnyRunning?1:0);}}});
   });
  }
  @Override protected void onResume() {super.onResume();networkHandler.removeCallbacks(networkRefresh);networkHandler.post(networkRefresh);updateTunerState();}
