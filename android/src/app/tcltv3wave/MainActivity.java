@@ -152,7 +152,7 @@ public final class MainActivity extends Activity {
  private void checkAppUpdate() {
   status.setText("アプリの更新を確認しています…");details.setText("");
   worker.submit(()->{
-   String current="?";String tag=null,url=null;String error=null;
+   String current="?";String tag=null,url=null,zip=null;String error=null;
    try {
     current=getPackageManager().getPackageInfo(getPackageName(),0).versionName;
     java.net.HttpURLConnection conn=(java.net.HttpURLConnection)new java.net.URL("https://api.github.com/repos/2m3k/TCLTV-Bondriver-3wave/releases?per_page=1").openConnection();
@@ -162,9 +162,9 @@ public final class MainActivity extends Activity {
     try(java.io.InputStream in=conn.getInputStream()){while((n=in.read(buf))>0)out.write(buf,0,n);}
     conn.disconnect();
     org.json.JSONArray releases=new org.json.JSONArray(out.toString("UTF-8"));
-    if(releases.length()>0){org.json.JSONObject rel=releases.getJSONObject(0);tag=rel.getString("tag_name");url=rel.getString("html_url");}
+    if(releases.length()>0){org.json.JSONObject rel=releases.getJSONObject(0);tag=rel.getString("tag_name");url=rel.getString("html_url");org.json.JSONArray assets=rel.getJSONArray("assets");for(int i=0;i<assets.length();i++){org.json.JSONObject a=assets.getJSONObject(i);if(a.getString("name").endsWith(".zip"))zip=a.getString("browser_download_url");}}
    } catch(Exception e) { error=e.getMessage(); }
-   final String cur=current,ftag=tag,furl=url,ferr=error;
+   final String cur=current,ftag=tag,furl=url,ferr=error,fzip=zip;
    runOnUiThread(()->{
     if(destroyed)return;
     status.setText("アプリの更新確認が終わりました");
@@ -172,12 +172,46 @@ public final class MainActivity extends Activity {
     if(ferr!=null||ftag==null){dialog.setMessage("更新情報を取得できませんでした。インターネット接続を確認してください。\n現在のバージョン："+cur+"\n同梱デーモン："+BUNDLED_DAEMON);dialog.setPositiveButton("閉じる",null);}
     else {
      boolean newer=compareVersion(ftag,cur)>0;
-     dialog.setMessage("現在のバージョン："+cur+"\n最新のリリース："+ftag+"\n同梱デーモン："+BUNDLED_DAEMON+"\n"+(newer?"新しいバージョンがあります。リリースページから新しいAPKを入手できます。":"最新です。"));
+     dialog.setMessage("現在のバージョン："+cur+"\n最新のリリース："+ftag+"\n同梱デーモン："+BUNDLED_DAEMON+"\n"+(newer?"新しいバージョンがあります。「更新する」を押すと、そのままダウンロードして入れ替えます（デーモンも同時に更新され、反映には再起動が必要です）。":"最新です。"));
      dialog.setNegativeButton("閉じる",null);
-     if(newer)dialog.setPositiveButton("リリースページを開く",(d,w)->{try{startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(furl)));}catch(Exception ignored){}});
+     if(newer&&fzip!=null){dialog.setPositiveButton("更新する",(d,w)->startSelfUpdate(fzip,ftag));dialog.setNeutralButton("リリースページを開く",(d,w)->{try{startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(furl)));}catch(Exception ignored){}});}
+     else if(newer)dialog.setPositiveButton("リリースページを開く",(d,w)->{try{startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(furl)));}catch(Exception ignored){}});
     }
     dialog.show();
    });
+  });
+ }
+ private void startSelfUpdate(final String zipUrl,final String tag) {
+  status.setText("更新をダウンロードしています…");details.setText("");
+  worker.submit(()->{
+   try {
+    File dir=new File(getFilesDir(),"update");if(!dir.isDirectory())dir.mkdirs();
+    File zipFile=new File(dir,"release.zip");
+    java.net.HttpURLConnection conn=(java.net.HttpURLConnection)new java.net.URL(zipUrl).openConnection();
+    conn.setConnectTimeout(15000);conn.setReadTimeout(60000);conn.setRequestProperty("User-Agent","tcltv3wave-update");
+    if(conn.getResponseCode()!=200)throw new IOException("HTTP "+conn.getResponseCode());
+    try(InputStream in=conn.getInputStream();OutputStream out=new FileOutputStream(zipFile)){byte[] b=new byte[65536];int n;while((n=in.read(b))>0)out.write(b,0,n);}
+    conn.disconnect();
+    File apk=null,daemon=null;byte[] b=new byte[65536];
+    try(java.util.zip.ZipInputStream zin=new java.util.zip.ZipInputStream(new FileInputStream(zipFile))){
+     java.util.zip.ZipEntry e;
+     while((e=zin.getNextEntry())!=null){
+      if(e.getName().equals("TCL-BonDriver-Setup.apk")||e.getName().equals("libtsd_release.so")){
+       File target=new File(dir,e.getName().equals("libtsd_release.so")?"libtsd.so":"update.apk");
+       try(OutputStream out=new FileOutputStream(target)){int n;while((n=zin.read(b))>0)out.write(b,0,n);}
+       if(e.getName().endsWith(".apk"))apk=target;else daemon=target;
+      }
+     }
+    }
+    if(apk==null)throw new IOException("更新パッケージにAPKが含まれていません");
+    if(daemon!=null)root("cp /data/local/tmp/libtsd.so /data/local/tmp/libtsd_backup.so && cp "+quote(daemon.getAbsolutePath())+" /data/local/tmp/libtsd.so",60);
+    root("pm install -r "+quote(apk.getAbsolutePath()),180);
+    final String msg="アプリを "+tag+" に更新しました。"+(daemon!=null?"デーモンも入れ替えました（再起動で反映されます）。":"");
+    runOnUiThread(()->{if(destroyed)return;status.setText(msg);new AlertDialog.Builder(this).setTitle("更新が完了しました").setMessage(msg+"\nテレビを再起動すると新しいデーモンが有効になります。").setNegativeButton("あとで",null).setPositiveButton("今すぐ再起動",(d,w)->perform("テレビを再起動しています…",()->root("sync; reboot",15))).show();});
+   } catch(Exception e) {
+    final String err=String.valueOf(e.getMessage());
+    runOnUiThread(()->{if(destroyed)return;status.setText("更新に失敗しました");details.setText(err);});
+   }
   });
  }
  private static int compareVersion(String a,String b) {
