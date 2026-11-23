@@ -192,6 +192,7 @@ public final class MainActivity extends Activity {
     if(conn.getResponseCode()!=200)throw new IOException("HTTP "+conn.getResponseCode());
     try(InputStream in=conn.getInputStream();OutputStream out=new FileOutputStream(zipFile)){byte[] b=new byte[65536];int n;while((n=in.read(b))>0)out.write(b,0,n);}
     conn.disconnect();
+    if(zipFile.length()<10000)throw new IOException("ダウンロードに失敗しました");
     File apk=null,daemon=null;byte[] b=new byte[65536];
     try(java.util.zip.ZipInputStream zin=new java.util.zip.ZipInputStream(new FileInputStream(zipFile))){
      java.util.zip.ZipEntry e;
@@ -203,8 +204,9 @@ public final class MainActivity extends Activity {
       }
      }
     }
-    if(apk==null)throw new IOException("更新パッケージにAPKが含まれていません");
-    if(daemon!=null)root("cp /data/local/tmp/libtsd.so /data/local/tmp/libtsd_backup.so && cp "+quote(daemon.getAbsolutePath())+" /data/local/tmp/libtsd.so",60);
+    if(apk==null||apk.length()<50000)throw new IOException("更新パッケージのAPKが不正です");
+    if(daemon!=null&&daemon.length()<10000)throw new IOException("更新パッケージのデーモンが不正です");
+    if(daemon!=null)root("cp /data/local/tmp/libtsd.so /data/local/tmp/libtsd_backup.so && cp "+quote(daemon.getAbsolutePath())+" /data/local/tmp/libtsd.new.so && chmod 755 /data/local/tmp/libtsd.new.so && chcon u:object_r:vendor_file:s0 /data/local/tmp/libtsd.new.so && mv /data/local/tmp/libtsd.new.so /data/local/tmp/libtsd.so",60);
     root("pm install -r "+quote(apk.getAbsolutePath()),180);
     final String msg="アプリを "+tag+" に更新しました。"+(daemon!=null?"デーモンも入れ替えました（再起動で反映されます）。":"");
     runOnUiThread(()->{if(destroyed)return;status.setText(msg);new AlertDialog.Builder(this).setTitle("更新が完了しました").setMessage(msg+"\nテレビを再起動すると新しいデーモンが有効になります。").setNegativeButton("あとで",null).setPositiveButton("今すぐ再起動",(d,w)->perform("テレビを再起動しています…",()->root("sync; reboot",15))).show();});
