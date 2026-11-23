@@ -117,6 +117,7 @@ static uintptr_t parse_arg(const char *t) {
 }
 
 static pthread_mutex_t route_switch_lock=PTHREAD_MUTEX_INITIALIZER;
+#include "tsd_fb_mux.inc"
 #include "tsd_epg.inc"
 #include "tsd_dual.inc"
 
