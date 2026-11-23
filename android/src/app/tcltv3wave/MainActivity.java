@@ -109,6 +109,7 @@ public final class MainActivity extends Activity {
   // ---- Daily operations ----
   start=button(sections[1],"配信を開始・復旧",0,()->perform("配信機能を確認しています…",()->root("sh /data/adb/service.d/91-tcl-pvr.sh; /data/local/tmp/tsctl --status",90)));
   button(sections[1],"番組表XMLを今すぐ更新（視聴優先）",0,()->{status.setText(NetworkService.refreshEpg());details.setText("");});
+  button(sections[1],"アプリの更新を確認",0,this::checkAppUpdate);
   // ---- IPTV / phone ----
   button(sections[2],"画面消灯中の通信維持を有効にする",0,()->perform("TCLの常駐許可を設定しています…",()->{TclPolicy.configure(this,true);NetworkService.enable(this,true);return "画面消灯中の通信維持とIPTVを有効にしました。";}));
   button(sections[2],"IPTVのM3U・番組表XMLを表示",0,this::showIptv);
@@ -147,6 +148,49 @@ public final class MainActivity extends Activity {
   refreshTiles(tileArr);
  }
  private void showIptv(){StringBuilder urls=new StringBuilder(NetworkService.state+"\n"+NetworkService.epgStatus()+"\n\n");String code=NetworkService.accessCode(this);try{java.util.Enumeration<java.net.NetworkInterface> interfaces=java.net.NetworkInterface.getNetworkInterfaces();while(interfaces.hasMoreElements()){java.net.NetworkInterface iface=interfaces.nextElement();if(!iface.isUp()||iface.isLoopback())continue;java.util.Enumeration<java.net.InetAddress> addresses=iface.getInetAddresses();while(addresses.hasMoreElements()){java.net.InetAddress address=addresses.nextElement();if(!(address instanceof java.net.Inet4Address))continue;String base="http://"+address.getHostAddress()+":40560/iptv/"+code+"/playlist.m3u?tuner=";urls.append(iface.getName()).append(" · チューナー1\n").append(base).append("0\n\nチューナー2\n").append(base).append("1\n\n番組表XML（両チューナー共通）\n").append(base.substring(0,base.indexOf("playlist.m3u"))).append("epg.xml\n\n");}}}catch(Exception ignored){}urls.append("先に通信維持を有効にしてください。URLをIPTVアプリやVLCへ登録します。同じチューナーはBonDriver・スマホと同時使用しないでください。URLは専用の接続キーを含むため公開しないでください。");TextView text=text(urls.toString(),16,Color.WHITE);text.setTextIsSelectable(true);text.setPadding(dp(20),dp(20),dp(20),dp(20));ScrollView scroll=new ScrollView(this);scroll.addView(text);new AlertDialog.Builder(this).setTitle("IPTV / M3U / XMLTV").setView(scroll).setPositiveButton("閉じる",null).show();}
+ private static final String BUNDLED_DAEMON="v28";
+ private void checkAppUpdate() {
+  status.setText("アプリの更新を確認しています…");details.setText("");
+  worker.submit(()->{
+   String current="?";String tag=null,url=null;String error=null;
+   try {
+    current=getPackageManager().getPackageInfo(getPackageName(),0).versionName;
+    java.net.HttpURLConnection conn=(java.net.HttpURLConnection)new java.net.URL("https://api.github.com/repos/2m3k/TCLTV-Bondriver-3wave/releases?per_page=1").openConnection();
+    conn.setConnectTimeout(10000);conn.setReadTimeout(10000);conn.setRequestProperty("User-Agent","tcltv3wave-update-check");
+    if(conn.getResponseCode()!=200)throw new java.io.IOException("HTTP "+conn.getResponseCode());
+    java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] buf=new byte[4096];int n;
+    try(java.io.InputStream in=conn.getInputStream()){while((n=in.read(buf))>0)out.write(buf,0,n);}
+    conn.disconnect();
+    org.json.JSONArray releases=new org.json.JSONArray(out.toString("UTF-8"));
+    if(releases.length()>0){org.json.JSONObject rel=releases.getJSONObject(0);tag=rel.getString("tag_name");url=rel.getString("html_url");}
+   } catch(Exception e) { error=e.getMessage(); }
+   final String cur=current,ftag=tag,furl=url,ferr=error;
+   runOnUiThread(()->{
+    if(destroyed)return;
+    status.setText("アプリの更新確認が終わりました");
+    AlertDialog.Builder dialog=new AlertDialog.Builder(this).setTitle("アプリの更新確認");
+    if(ferr!=null||ftag==null){dialog.setMessage("更新情報を取得できませんでした。インターネット接続を確認してください。\n現在のバージョン："+cur+"\n同梱デーモン："+BUNDLED_DAEMON);dialog.setPositiveButton("閉じる",null);}
+    else {
+     boolean newer=compareVersion(ftag,cur)>0;
+     dialog.setMessage("現在のバージョン："+cur+"\n最新のリリース："+ftag+"\n同梱デーモン："+BUNDLED_DAEMON+"\n"+(newer?"新しいバージョンがあります。リリースページから新しいAPKを入手できます。":"最新です。"));
+     dialog.setNegativeButton("閉じる",null);
+     if(newer)dialog.setPositiveButton("リリースページを開く",(d,w)->{try{startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(furl)));}catch(Exception ignored){}});
+    }
+    dialog.show();
+   });
+  });
+ }
+ private static int compareVersion(String a,String b) {
+  int[] x=versionParts(a),y=versionParts(b);
+  for(int i=0;i<3;i++){if(x[i]!=y[i])return x[i]<y[i]?-1:1;}
+  return 0;
+ }
+ private static int[] versionParts(String v) {
+  int[] parts=new int[3];if(v==null)return parts;
+  String t=v.startsWith("v")?v.substring(1):v;String[] seg=t.split("\\.");
+  for(int i=0;i<seg.length&&i<3;i++){int num=0;for(int j=0;j<seg[i].length();j++){char c=seg[i].charAt(j);if(c<'0'||c>'9')break;num=num*10+(c-'0');}parts[i]=num;}
+  return parts;
+ }
  private void pairPhone(){if(pairing!=null){pairing.close();pairing=null;stopPhoneAdvertisement();pairingInfo.setVisibility(View.GONE);pairButton.setText("スマートフォンを接続（確認コードを表示）");status.setText("スマートフォンの接続受付を終了しました");return;}pairButton.setEnabled(false);status.setText("スマートフォン用の設定を準備しています…");worker.submit(()->{try{byte[] data=PhonePairing.export(this);runOnUiThread(()->{if(destroyed)return;pairButton.setEnabled(true);try{pairing=new PhonePairing(data,message->runOnUiThread(()->{if(!destroyed){status.setText(message);pairing=null;stopPhoneAdvertisement();pairingInfo.setVisibility(View.GONE);pairButton.setText("スマートフォンを接続（確認コードを表示）");}}));advertisePhone();pairingInfo.setText("確認コード  "+pairing.code+"\nスマホにTVのIPとこの6桁を入力してください。\n2分間・1回のみ有効です。TVで他のアプリを開くと無効になります。");pairingInfo.setVisibility(View.VISIBLE);pairButton.setText("スマートフォンの接続受付を終了");pairingInfo.requestFocus();status.setText("スマートフォンの接続を待っています");}catch(Exception e){status.setText("接続の受付を開始できません。もう一度お試しください。");}});}catch(Exception e){runOnUiThread(()->{if(!destroyed){pairButton.setEnabled(true);status.setText(e.getMessage());}});}});}
  private void advertisePhone(){stopPhoneAdvertisement();android.net.nsd.NsdManager nsd=(android.net.nsd.NsdManager)getSystemService(NSD_SERVICE);android.net.nsd.NsdServiceInfo service=new android.net.nsd.NsdServiceInfo();service.setServiceName("TCL TV");service.setServiceType("_tcltv._tcp.");service.setPort(40559);service.setAttribute("protocol","1");phoneAdvertisement=new android.net.nsd.NsdManager.RegistrationListener(){public void onServiceRegistered(android.net.nsd.NsdServiceInfo i){runOnUiThread(()->{if(pairing==null)stopPhoneAdvertisement();});}public void onRegistrationFailed(android.net.nsd.NsdServiceInfo i,int e){}public void onServiceUnregistered(android.net.nsd.NsdServiceInfo i){}public void onUnregistrationFailed(android.net.nsd.NsdServiceInfo i,int e){}};try{nsd.registerService(service,android.net.nsd.NsdManager.PROTOCOL_DNS_SD,phoneAdvertisement);}catch(Exception ignored){phoneAdvertisement=null;}}
  private void stopPhoneAdvertisement(){if(phoneAdvertisement==null)return;try{((android.net.nsd.NsdManager)getSystemService(NSD_SERVICE)).unregisterService(phoneAdvertisement);}catch(Exception ignored){}phoneAdvertisement=null;}
