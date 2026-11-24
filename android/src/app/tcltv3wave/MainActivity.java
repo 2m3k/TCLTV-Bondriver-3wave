@@ -148,7 +148,7 @@ public final class MainActivity extends Activity {
   refreshTiles(tileArr);
  }
  private void showIptv(){StringBuilder urls=new StringBuilder(NetworkService.state+"\n"+NetworkService.epgStatus()+"\n\n");String code=NetworkService.accessCode(this);try{java.util.Enumeration<java.net.NetworkInterface> interfaces=java.net.NetworkInterface.getNetworkInterfaces();while(interfaces.hasMoreElements()){java.net.NetworkInterface iface=interfaces.nextElement();if(!iface.isUp()||iface.isLoopback())continue;java.util.Enumeration<java.net.InetAddress> addresses=iface.getInetAddresses();while(addresses.hasMoreElements()){java.net.InetAddress address=addresses.nextElement();if(!(address instanceof java.net.Inet4Address))continue;String base="http://"+address.getHostAddress()+":40560/iptv/"+code+"/playlist.m3u?tuner=";urls.append(iface.getName()).append(" · チューナー1\n").append(base).append("0\n\nチューナー2\n").append(base).append("1\n\n番組表XML（両チューナー共通）\n").append(base.substring(0,base.indexOf("playlist.m3u"))).append("epg.xml\n\n");}}}catch(Exception ignored){}urls.append("先に通信維持を有効にしてください。URLをIPTVアプリやVLCへ登録します。同じチューナーはBonDriver・スマホと同時使用しないでください。URLは専用の接続キーを含むため公開しないでください。");TextView text=text(urls.toString(),16,Color.WHITE);text.setTextIsSelectable(true);text.setPadding(dp(20),dp(20),dp(20),dp(20));ScrollView scroll=new ScrollView(this);scroll.addView(text);new AlertDialog.Builder(this).setTitle("IPTV / M3U / XMLTV").setView(scroll).setPositiveButton("閉じる",null).show();}
- private static final String BUNDLED_DAEMON="v28";
+ private static final String BUNDLED_DAEMON="v31";
  private void checkAppUpdate() {
   status.setText("アプリの更新を確認しています…");details.setText("");
   worker.submit(()->{

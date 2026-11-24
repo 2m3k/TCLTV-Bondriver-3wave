@@ -20,6 +20,13 @@ static const struct tsd_fb_mux tsd_fb_mux_table[] = {
  {4, 16626, 1318000, 59},
  {4, 17488, 1126200, 59},
  {4, 17489, 1126200, 59},
+ // v30/v31: post-2024 BS reorganization TSIDs (verified via EPG triplets
+ // and on-air PAT checks 2026-11-24) - Animax (236) on BS-3 TS 17969,
+ // Tsuri Vision (251) on BS-3 TS 17970, BS10 (200) on BS-15 TS 18675;
+ // Housou Daigaku (231/232) moved to BS13/TS2 (18130, already above).
+ {4, 17969, 1087840, 59},
+ {4, 17970, 1087840, 59},
+ {4, 18675, 1318000, 59},
  {4, 18098, 1241280, 59},
  {4, 18099, 1241280, 59},
  {4, 18130, 1279640, 59},

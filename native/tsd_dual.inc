@@ -381,7 +381,14 @@ static int d2_dual_tune(uint16_t onid,uint16_t tsid,uint16_t sid,int *clear) {
  if(!have_mux){const struct tsd_fb_mux *fb=tsd_fb_lookup(onid,tsid);if(fb){frequency=fb->freq;satellite=fb->sat_id;have_mux=1;DIAG("D2 fallback mux onid=%u tsid=%u freq=%u sat=%u",(unsigned)onid,(unsigned)tsid,frequency,satellite);}}
  if(!have_mux){if(route_switched)DO("db_dtv_set_route",(uintptr_t)route_cur,0,0);pthread_mutex_unlock(&route_switch_lock);return 9;}
  // ISDB-S mux frequencies are the TV's L-band IF values; reject malformed DB rows.
- if((!satellite&&(frequency<400000||frequency>800000))||(satellite&&(satellite>255||frequency<950000||frequency>2150000))){if(route_switched)DO("db_dtv_set_route",(uintptr_t)route_cur,0,0);pthread_mutex_unlock(&route_switch_lock);return 9;}
+ // v29: a malformed DB row (seen after the 2026-11-23 channel-DB loss, whose
+ // regenerated rows can carry bad frequencies) falls back to the built-in
+ // table instead of failing the tune outright.
+ if((!satellite&&(frequency<400000||frequency>800000))||(satellite&&(satellite>255||frequency<950000||frequency>2150000))){
+  const struct tsd_fb_mux *fb=tsd_fb_lookup(onid,tsid);
+  if(fb&&(fb->sat_id<=255&&fb->freq>=950000&&fb->freq<=2150000)){DIAG("D2 fallback mux (bad DB row) onid=%u tsid=%u freq=%u sat=%u dbfreq=%u dbsat=%u",(unsigned)onid,(unsigned)tsid,fb->freq,fb->sat_id,frequency,satellite);frequency=fb->freq;satellite=fb->sat_id;}
+  else{if(route_switched)DO("db_dtv_set_route",(uintptr_t)route_cur,0,0);pthread_mutex_unlock(&route_switch_lock);return 9;}
+ }
  if(route_switched)DO("db_dtv_set_route",(uintptr_t)route_cur,0,0);pthread_mutex_unlock(&route_switch_lock);
  if(d2_dual_listener<0)return 41;d2_dual_stop();__atomic_store_n(&epg_scan_channel[1],epg_background(1),__ATOMIC_SEQ_CST);
  pthread_mutex_lock(&d2_dual_lock);memset(&d2_dual_state,0,sizeof d2_dual_state);d2_soft_ok=0;d2_dual_state.frequency=frequency;d2_dual_state.satellite_id=satellite;d2_dual_state.onid=onid;d2_dual_state.tsid=tsid;d2_dual_state.sid=sid;d2_dual_sent=0;d2_dual_clients=d2_dual_send_errors=0;pthread_mutex_unlock(&d2_dual_lock);
