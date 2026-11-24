@@ -13,6 +13,15 @@ class ChannelCatalogTests {
   Check(ChannelCatalog.Parse(Row(1,"標準TV","1",service:"SERVICE_TYPE_AUDIO_VIDEO")).Count==1,"standard service type");
   int skippedSatellite,skippedTerrestrial;var partial=ChannelCatalog.Parse(Row(1,"地上波","1")+Row(8,"NULL","301",type:"TYPE_ISDB_S")+Row(9,"NULL","31"),out skippedSatellite,out skippedTerrestrial);
   Check(partial.Count==1&&skippedSatellite==1&&skippedTerrestrial==1,"count nameless rows per system");
+  var remapped=ChannelCatalog.Parse(Row(236,"BSアニマックス","236",type:"TYPE_ISDB_S",onid:4,tsid:18130)+Row(251,"BS釣りビジョン","251",type:"TYPE_ISDB_S",onid:4,tsid:18099)+Row(231,"放送大学ex","231",type:"TYPE_ISDB_S",onid:4,tsid:18098)+Row(232,"放送大学on","232",type:"TYPE_ISDB_S",onid:4,tsid:18098)+Row(200,"スターチャンネル1","200",type:"TYPE_ISDB_S",onid:4,tsid:16529)+Row(182,"BSフジ","182",type:"TYPE_ISDB_S",onid:4,tsid:16593));
+  Check(remapped.Count==6,"remap keeps all services");
+  Check(remapped.Find(c=>c.Sid==236).Tsid==17969,"remap Animax tsid");
+  Check(remapped.Find(c=>c.Sid==251).Tsid==17970,"remap Tsuri Vision tsid");
+  Check(remapped.Find(c=>c.Sid==231).Tsid==18130&&remapped.Find(c=>c.Sid==232).Tsid==18130,"remap OUJ tsid");
+  Check(remapped.Find(c=>c.Sid==200).Tsid==18675&&remapped.Find(c=>c.Sid==200).Name=="ＢＳ１０","remap BS10 tsid and name");
+  Check(remapped.Find(c=>c.Sid==182).Tsid==16593,"unrelated tsid untouched");
+  int skSat2,skTer2;var nullName=ChannelCatalog.Parse(Row(200,"NULL","200",type:"TYPE_ISDB_S",onid:4,tsid:16529)+Row(1,"地上波","1"),out skSat2,out skTer2);
+  Check(nullName.Count==1&&skSat2==1,"remap does not resurrect nameless rows");
   string ch2=ChannelCatalog.Ch2(list);string[] ch2Lines=ch2.Split(new[]{"\r\n"},StringSplitOptions.RemoveEmptyEntries);
   Check(ch2Lines.Length==5,"ch2 header plus entries");Check(ch2Lines[0].StartsWith("; TVTest channel settings"),"ch2 header");
   Check(ch2Lines[3]=="081 大阪のテレビ,0,1,0,1,1,40001,41001,1","ch2 terrestrial entry");Check(ch2Lines[4]=="101 衛星,1,0,0,1,3,40001,41001,1","ch2 satellite entry");

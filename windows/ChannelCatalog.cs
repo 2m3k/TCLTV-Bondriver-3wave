@@ -22,6 +22,15 @@ namespace TclBonDriverSetup {
     string kind=m.Groups[6].Value;if(kind!="EN_TCL_DTV"&&kind!="SERVICE_TYPE_AUDIO_VIDEO")continue;
     int onid,tsid,sid;if(!Id(m.Groups[2].Value,out onid)||!Id(m.Groups[3].Value,out tsid)||!Id(m.Groups[4].Value,out sid))throw new IOException("TVのチャンネルIDが不正です。TV側で再スキャンしてください。");
     string number=m.Groups[1].Value.Trim(),name=m.Groups[8].Value.Trim();
+    // The TV catalog is a preset frozen before the 2024-2025 BS band
+    // reorganization, so a few satellite triplets are stale. Remap them to
+    // the current triplets (same table as the Mirakurun app's installer).
+    if(onid==4) {
+     if(tsid==18130&&sid==236)tsid=17969;        // BS Animax
+     else if(tsid==18099&&sid==251)tsid=17970;   // BS Tsuri Vision
+     else if(tsid==18098&&(sid==231||sid==232))tsid=18130; // OUJ BS Campus
+     else if(tsid==16529&&sid==200) {tsid=18675;if(name.Length>0&&name!="NULL")name="ＢＳ１０";} // ex-Star Channel 1 / BS Japanext slot
+    }
     if(number=="NULL")number="";
     if(name.Length==0||name=="NULL") {if(system=="TYPE_ISDB_S")skippedSatellite++;else skippedTerrestrial++;continue;}
     if(name.Length>200||number.Length>32||name.IndexOf('\0')>=0||number.IndexOf('\0')>=0)throw new IOException("TVのチャンネル名を確認できません。");
